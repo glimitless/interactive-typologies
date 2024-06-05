@@ -1,0 +1,54 @@
+/* Removes default margins of document */
+*{
+    margin: 0;
+    padding: 0;
+}
+
+/* Sets root font size to 12pt or 16px */
+html{
+    font-size: 12pt;
+}
+
+/* Sets custom font for h1 tag */
+h1{
+    font-family: 'thirsty-rough-two', sans-serif; 
+    font-weight: 800;
+    font-style: normal;
+    line-height: 1.5em;
+}
+
+/* Sets the background to a slightly tinted white */
+body{
+    background: #FFFAF1;
+}
+
+
+/* Styles header text */
+.header-text{
+    position: absolute;
+    z-index: 2;
+    width: 100vw;
+    height: 100vh;
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Styles the container for the JS canvas */
+.canvas-container{
+    position: absolute;
+    z-index: -1;
+    width: 100vw;
+    height: 100vh;
+}
+
+/* Styles the pointer div */
+.cursor-pointer{
+    position: absolute;
+    z-index: 3;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 9999px;
+    border: 0.25rem dashed hsla(230, 50%, 0%, 0.5);
+}
