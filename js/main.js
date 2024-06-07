@@ -11,6 +11,24 @@ var cursorY = 0;
 // Object holding all drawn letters
 var allCharacters = [];
 
+// Object holding all character colors
+const colors = [
+    {name: 'red', color: 0},
+    {name: "green", color: 120},
+    {name: "blue", color: 240},
+    {name: "purple", color: 280},
+    {name: "orange", color: 30},
+];
+
+// Array holding the spaces which the names of the colors take in the color menu
+var colorDivs = [];
+
+// Variable indicating which color is currently selected
+var currentColorSelection = 0;
+
+// Variable indicating which scale factor is currently selected
+var currentScaleFactor = 1;
+
 // Variable controlling the accellerating of letter falling speed
 const gravitySpeed = 0.2;
 
@@ -90,24 +108,18 @@ $(document).on('keyup', function(){
     // Signals that a a key is currently pressed
     iskeyDown = false;
 })
+
+// Event listener for when the cursor is moved
 $(document).on('mousemove', function(event){
+    // Tracks the current position of the cursor
     cursorX = event.clientX;
     cursorY = event.clientY;
-    
-    // Retreives the width and height of the pointer div
-    var pointerWidth = $('.cursor-pointer').outerWidth();
-    var pointerHeight = $('.cursor-pointer').outerHeight();
 
-    // Calculates position of the div if the div was to be centered around the cursor
-    var leftPosition = cursorX - pointerWidth / 2;
-    var topPosition = cursorY - pointerHeight / 2;
-
-    // Centers the pointer div around the cursor
-    $('.cursor-pointer').css({
-        top: topPosition + 'px',
-        left: leftPosition + 'px'
-    });
+    // Centers the cursor-pointer around the cursor
+    centerPointerCircle(cursorX, cursorY);
 });
+
+
 
 // Hides cursor pointer until mouse is moved
 $('.cursor-pointer').css({  
@@ -120,6 +132,26 @@ setUpCanvas();
 
 // Runs the animation loop
 animationLoop();
+
+// Event listener that waits for the document to be fully loaded
+$(document).ready(function() {
+    // Initializes the color selector menu
+    initColorSelector();
+
+    // Event listener that listens for clicks outside of the color selector menu
+    $(document).on('click', function(event) {
+        // Checks if the click is outside the expanded color selector menu
+        if (!$(event.target).closest('.color-selector').length) {
+            // Closes the expanded color selection menu
+            closeColorSelector();
+        }
+    });
+});
+
+
+
+
+
 
 
 
@@ -210,17 +242,17 @@ function calculateOverlap(svg1, svg2, dimensions) {
     
     // Defines the area of the first letter
     const rect1 = {
-        x: svg1.x - dimensions[svg1.id].halfWidth,
-        y: svg1.y - dimensions[svg1.id].halfHeight,
-        rw: dimensions[svg1.id].width,
-        rh: dimensions[svg1.id].height,
+        x: svg1.x - (dimensions[svg1.id].halfWidth * svg1.scaleFactor),
+        y: svg1.y - (dimensions[svg1.id].halfHeight * svg1.scaleFactor),
+        rw: dimensions[svg1.id].width * svg1.scaleFactor,
+        rh: dimensions[svg1.id].height * svg1.scaleFactor,
     };
     // Defines the area of the second letter
     const rect2 = {
-        x: svg2.x - dimensions[svg2.id].halfWidth,
-        y: svg2.y - dimensions[svg2.id].halfHeight,
-        rw: dimensions[svg2.id].width,
-        rh: dimensions[svg2.id].height,
+        x: svg2.x - dimensions[svg2.id].halfWidth * svg2.scaleFactor,
+        y: svg2.y - dimensions[svg2.id].halfHeight * svg2.scaleFactor,
+        rw: dimensions[svg2.id].width * svg2.scaleFactor,
+        rh: dimensions[svg2.id].height * svg2.scaleFactor,
     };
 
     // Determines which of the two left sides has a larger value
@@ -236,17 +268,17 @@ function intersects(svg1, svg2, dimensions) {
 
     // Defines the area of the first letter
     const rect1 = {
-        x: svg1.x - dimensions[svg1.id].halfWidth,
-        y: svg1.y - dimensions[svg1.id].halfHeight,
-        rw: dimensions[svg1.id].width,
-        rh: dimensions[svg1.id].height,
+        x: svg1.x - (dimensions[svg1.id].halfWidth * svg1.scaleFactor),
+        y: svg1.y - (dimensions[svg1.id].halfHeight * svg1.scaleFactor),
+        rw: dimensions[svg1.id].width * svg1.scaleFactor,
+        rh: dimensions[svg1.id].height * svg1.scaleFactor,
     };
     // Defines the area of the second letter
     const rect2 = {
-        x: svg2.x - dimensions[svg2.id].halfWidth,
-        y: svg2.y - dimensions[svg2.id].halfHeight,
-        rw: dimensions[svg2.id].width,
-        rh: dimensions[svg2.id].height,
+        x: svg2.x - dimensions[svg2.id].halfWidth * svg2.scaleFactor,
+        y: svg2.y - dimensions[svg2.id].halfHeight * svg2.scaleFactor,
+        rw: dimensions[svg2.id].width * svg2.scaleFactor,
+        rh: dimensions[svg2.id].height * svg2.scaleFactor,
     };
 
     // Returns true if letters are intersected
@@ -256,13 +288,14 @@ function intersects(svg1, svg2, dimensions) {
              rect2.y + rect2.rh < rect1.y);
 }
 
+// Draws the passed letter
 function drawSvgPath(o, dimensions) {
     // Defines the path of the letter that will be drawn
     const path = new Path2D(o.svgPathData);
 
     // Calculates the center offset, so that the letter is placed at the center of the indicated position
-    const offsetX = dimensions[o.id].width / 2;
-    const offsetY = dimensions[o.id].height  / 2;
+    const offsetX = (dimensions[o.id].width * o.scaleFactor) / 2;
+    const offsetY = (dimensions[o.id].height * o.scaleFactor)  / 2;
 
     // Saves current state of the canvas prior to movement of the origin point and rotation
     ctx.save();
@@ -279,17 +312,69 @@ function drawSvgPath(o, dimensions) {
     // Rotates the letter
     ctx.rotate(o.angle);
 
+    // Scales the letter
+    const scaleX = o.scaleFactor; 
+    const scaleY = o.scaleFactor; 
+    ctx.scale(scaleX, scaleY);
+
     // Fills the letter with the indicated color
-    ctx.fillStyle = "hsla(" + o.color + ", 100%, 50%, 0.7)";
+    ctx.fillStyle = "hsla(" + o.color + ", 80%, 50%, 0.7)";
     ctx.fill(path);
 
     // Restores the original state of the canvas
     ctx.restore();
 }
 
-// Function to handle assignment of properties for pressed keys to be drawn
+// Function to handle assignment of properties for pressed keys to be drawn. Also handles adjustment of scaleFactor on number key press
 async function keyPush(key){
-    if(key === "a"){
+    if(key === "1"){
+        currentScaleFactor = 0.25;
+        $('.cursor-pointer').css({width: '0.75rem', height: '0.75rem'});
+        centerPointerCircle(cursorX, cursorY);
+        
+    }
+    else if(key === "2"){
+        currentScaleFactor = 0.5;
+        $('.cursor-pointer').css({width: '1.5rem', height: '1.5rem'});
+        centerPointerCircle(cursorX, cursorY);
+    }
+    else if(key === "3"){
+        currentScaleFactor = 0.75;
+        $('.cursor-pointer').css({width: '2.25rem', height: '2.25rem'});
+        centerPointerCircle(cursorX, cursorY);
+        
+    }
+    else if(key === "4"){
+        currentScaleFactor = 1;
+        $('.cursor-pointer').css({width: '3rem', height: '3rem'});
+        centerPointerCircle(cursorX, cursorY);
+    }
+    else if(key === "5"){
+        currentScaleFactor = 2;
+        $('.cursor-pointer').css({width: '6rem', height: '6rem'});
+        centerPointerCircle(cursorX, cursorY);
+    }
+    else if(key === "6"){
+        currentScaleFactor = 3;
+        $('.cursor-pointer').css({width: '9.5rem', height: '9.5rem'});
+        centerPointerCircle(cursorX, cursorY);
+    }
+    else if(key === "7"){
+        currentScaleFactor = 4;
+        $('.cursor-pointer').css({width: '12.5rem', height: '12.5rem'});
+        centerPointerCircle(cursorX, cursorY);
+    }
+    else if(key === "8"){
+        currentScaleFactor = 5;
+        $('.cursor-pointer').css({width: '16rem', height: '16rem'});
+        centerPointerCircle(cursorX, cursorY);
+    }
+    else if(key === "9"){
+        currentScaleFactor = 6;
+        $('.cursor-pointer').css({width: '18.5rem', height: '18.5rem'});
+        centerPointerCircle(cursorX, cursorY);
+    }
+    else if(key === "a"){
         const svgPathData = "M6.05,24.24c-3.5,0-6.05-2.11-6.05-5.38,0-4.18,3.12-6.19,9.55-7.34l3.94-.72v-3.41c0-3.65-1.87-4.46-5.52-4.46-1.39,0-2.35.24-2.93.53v.19c1.2.34,2.02,1.58,2.02,2.93,0,1.63-1.34,2.83-3.12,2.83-1.97,0-3.26-1.44-3.26-3.46C.67,1.82,6.05,0,10.42,0c6.19,0,9.55,2.4,9.55,10.8v8.21c0,1.49.48,1.68,3.22,1.87v1.68c-1.06.67-2.64,1.58-4.9,1.58-2.93,0-4.8-1.58-4.8-4.32-1.49,2.11-4.22,4.42-7.44,4.42ZM8.98,20.35c1.82,0,3.26-.96,4.51-2.54v-5.23l-3.26,1.15c-2.93,1.01-3.7,1.92-3.7,3.94s.86,2.69,2.45,2.69Z";
         
         allCharacters.push({
@@ -297,10 +382,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "a",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "b"){
@@ -311,10 +397,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "b",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "c"){
@@ -325,10 +412,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "c",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "d"){
@@ -339,10 +427,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "d",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "e"){
@@ -353,10 +442,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "e",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "f"){
@@ -367,10 +457,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "f",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "g"){
@@ -382,10 +473,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "g",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "h"){
@@ -396,10 +488,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "h",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "i"){
@@ -410,10 +503,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "i",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "j"){
@@ -424,10 +518,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "j",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "k"){
@@ -438,10 +533,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "k",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
 
     }
@@ -453,10 +549,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "l",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "m"){
@@ -467,10 +564,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "m",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "n"){
@@ -481,10 +579,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "n",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "o"){
@@ -495,10 +594,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "o",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "p"){
@@ -509,10 +609,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "p",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "q"){
@@ -523,10 +624,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "q",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "r"){
@@ -537,10 +639,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "r",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "s"){
@@ -551,10 +654,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "s",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "t"){
@@ -565,10 +669,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "t",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "u"){
@@ -579,10 +684,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "u",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "v"){
@@ -593,10 +699,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "v",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "w"){
@@ -607,10 +714,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "w",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "x"){
@@ -621,10 +729,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "x",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "y"){
@@ -635,10 +744,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "y",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "z"){
@@ -649,10 +759,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "z",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "A"){
@@ -663,10 +774,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "aCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "B"){
@@ -677,10 +789,11 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "bCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             horizontalMoveDirection: 0,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "C"){
@@ -691,9 +804,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "cCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "D"){
@@ -705,9 +819,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "dCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "E"){  
@@ -718,9 +833,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "eCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "F"){
@@ -731,9 +847,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "fCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "G"){
@@ -744,9 +861,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "gCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "H"){
@@ -757,9 +875,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "hCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "I"){
@@ -770,9 +889,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "iCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "J"){
@@ -783,9 +903,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "jCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "K"){
@@ -796,9 +917,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "kCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "L"){
@@ -809,9 +931,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "lCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "M"){
@@ -822,9 +945,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "mCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "N"){
@@ -835,9 +959,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "nCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "O"){
@@ -848,9 +973,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "oCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "P"){
@@ -861,9 +987,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "pCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "Q"){
@@ -874,9 +1001,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "qCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "R"){
@@ -887,9 +1015,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "rCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "S"){
@@ -900,9 +1029,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "sCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "T"){
@@ -913,9 +1043,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "tCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "U"){
@@ -926,9 +1057,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "uCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "V"){
@@ -939,9 +1071,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "vCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "W"){
@@ -952,9 +1085,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "wCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "X"){
@@ -965,9 +1099,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "xCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "Y"){
@@ -978,9 +1113,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "yCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
     else if(key === "Z"){
@@ -991,9 +1127,10 @@ async function keyPush(key){
             y: cursorY,
             svgPathData: svgPathData,
             id: "zCapital",
-            color: Math.random()*120,
+            color: currentColorSelection,
             moveSpeed: 1,
             angle: 0,
+            scaleFactor: currentScaleFactor,
         });
     }
 
@@ -1005,6 +1142,92 @@ async function loadSvgPath() {
     const response = await fetch('../fonts/farnham-text-capital-Z.svg');
     const svgPathData = await response.text();
     console.log(svgPathData);
+}
+
+// Function to fill the color selector div
+function fillColorSelector() {
+    // Retrieves the color selector menu div
+    const colorSelectorDiv = $('.color-selector');
+
+    // Empties all pre-existing content with the color selector div
+    colorSelectorDiv.empty(); 
+
+    // Creates an area for each menu item to occupy and the menu items
+    colors.forEach(color => {
+        const parentDiv = $('<div>')
+            .addClass('area-color-instance')
+            
+        const childDiv = $('<h1>')
+            .html(color.name) 
+            .addClass('color-instance-' + (colorDivs.length + 1))
+
+        // Sets the menu items as children of their respective area divs
+        parentDiv.append(childDiv);
+
+        // Sets the areas as childs of the color selector menu div
+        parentDiv.appendTo(colorSelectorDiv);
+        
+        // Tracks all created menu items
+        colorDivs.push(childDiv);
+    });
+
+    // Handles event listeners for color selection menu
+    for(let i=1; i < colorDivs.length+1; i++){
+
+        // Assigns an id to each menu item
+        $('.color-instance-'+i).first().attr('id', i);
+
+        // Highlights the color text with its respective colour when hovered over
+        $('.color-instance-'+i).mouseenter(function(){
+            let id = $(this).first()[0].id;
+            $('.color-instance-' + id).css('color', "hsla(" + colors[id-1].color + ", 80%, 50%, 0.7)");
+        })
+
+        // Returns the color text back to normal unless it is selected
+        $('.color-instance-'+i).mouseleave(function(){
+            let id = $(this).first()[0].id;
+            if(colors[id-1].color !== currentColorSelection){
+                $('.color-instance-' + id).css('color', '#FFFAF1');
+            }
+        })
+
+        // Sets the clicked menu item as the currently selected color
+        $('.color-instance-'+i).on('click', function(){
+            let id = $(this).first()[0].id;
+            currentColorSelection = colors[id- 1].color;
+            for(let j=1; j < colorDivs.length+1; j++){
+                if(colors[j-1].color !== currentColorSelection){
+                    $('.color-instance-' + j).css('color', '#FFFAF1');
+                }
+            }
+        })
+    }
+
+    // Highlights which color is initially selected
+    for(let i=1; i < colorDivs.length+1; i++){
+        if(colors[i-1].color === currentColorSelection){
+            $('.color-instance-' + i).css('color', "hsla(" + currentColorSelection + ", 80%, 50%, 0.7)");
+        }
+    }
+}
+
+// Function to center the cursor pointer in the middle of the circle
+function centerPointerCircle(x, y){
+    
+    
+    // Retreives the width and height of the pointer div
+    var pointerWidth = $('.cursor-pointer').outerWidth();
+    var pointerHeight = $('.cursor-pointer').outerHeight();
+
+    // Calculates position of the div if the div was to be centered around the cursor
+    var leftPosition = x - pointerWidth / 2;
+    var topPosition = y - pointerHeight / 2;
+
+    // Centers the pointer div around the cursor
+    $('.cursor-pointer').css({
+        top: topPosition + 'px',
+        left: leftPosition + 'px'
+    });
 }
 
 // Function to clear the canvas
@@ -1031,3 +1254,54 @@ function resizeCanvas(){
     w = window.innerWidth;
     h = window.innerHeight;
 }
+
+// Function to initialize the color selector menu
+function initColorSelector() {
+
+    // Retrieves the color selector menu div
+    const colorSelectorDiv = $('.color-selector');
+
+    // Event listener to toggle the color selector when menu icon is clicked
+    colorSelectorDiv.click(function(event){
+        // Stops the event from being repeated
+        event.stopPropagation(); 
+
+        // Checks if the color selector menu is already expanded
+        if (!$(this).hasClass('expanded')){
+            // Expands the color selector menu
+            $(this).addClass('expanded');
+
+            // Adds the menu items to the color selector menu
+            fillColorSelector();
+        }
+    });
+}
+
+// Function to close the color selector menu
+function closeColorSelector() {
+    // Retrieves the color selector menu div
+    const colorSelectorDiv = $('.color-selector');
+
+    // Checks if the menu is expanded
+    if (colorSelectorDiv.hasClass('expanded')){
+        // Removes the 'expanded' class to revert to the initial circular form
+        colorSelectorDiv.removeClass('expanded');
+
+        // Removes event listeners from color instances
+        colorDivs.forEach((div, index) => {
+            // Retrieves the individual menu item div
+            const selector = '.color-instance-' + (index + 1);
+
+            // Removes event listeners attached to the specified menu item div
+            $(selector).off('mouseenter mouseleave click');
+        });
+
+        // Empties the trackers for the color selector menu div
+        colorSelectorDiv.empty();
+
+        // Empties the trackers for the color selector menu items divs
+        colorDivs = [];
+    }
+}
+
+
